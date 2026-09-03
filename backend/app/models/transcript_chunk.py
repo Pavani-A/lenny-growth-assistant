@@ -28,7 +28,7 @@ class TranscriptChunk(Base):
     )
 
     embedding = mapped_column(
-        Vector(1536),
+        Vector(768),
         nullable=True,
     )
 
