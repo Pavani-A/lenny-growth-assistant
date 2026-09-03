@@ -1,3 +1,5 @@
+from collections.abc import Iterator
+
 from app.agent.ollama_agent import OllamaGrowthAssistantAgent
 from app.schemas.chat import ChatResponse
 
@@ -49,4 +51,22 @@ class ChatService:
             provider=provider,
             answer=result.answer,
             sources=sources,
+        )
+
+    def chat_stream(
+        self,
+        message: str,
+        session_id: str,
+        provider: str,
+    ) -> tuple[Iterator[str], list[dict]]:
+        """Process a chat request and stream the assistant response."""
+
+        if provider != "ollama":
+            raise ValueError(
+                f"Provider '{provider}' is not available for streaming yet."
+            )
+
+        return self.ollama_agent.run_stream(
+            message=message,
+            session_id=session_id,
         )

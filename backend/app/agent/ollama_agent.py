@@ -1,3 +1,5 @@
+from collections.abc import Iterator
+
 from app.agent.base import AgentResponse, GrowthAssistantAgent
 from app.agent.config import AgentConfig
 from app.agent.context import build_retrieval_context
@@ -11,28 +13,14 @@ class OllamaGrowthAssistantAgent(GrowthAssistantAgent):
         self.provider = OllamaProvider()
         self.config = AgentConfig()
 
-    def run(
+    def _build_prompt(
         self,
         message: str,
-        session_id: str,
-    ) -> AgentResponse:
-        """Answer a user message using retrieved transcript context."""
+        context: str,
+    ) -> str:
+        """Build the grounded prompt shared by normal and streaming runs."""
 
-        if not message.strip():
-            raise ValueError("Message cannot be empty.")
-
-        context, sources = build_retrieval_context(message, top_k=2)
-
-        if not context:
-            return AgentResponse(
-                answer=(
-                    "I couldn't find relevant material in the available "
-                    "Lenny transcript knowledge base to answer that question."
-                ),
-                sources=[],
-            )
-
-        prompt = f"""
+        return f"""
 Use the transcript sources below to answer the user's question.
 
 IMPORTANT:
@@ -50,6 +38,35 @@ User question:
 {message}
 """.strip()
 
+    def run(
+        self,
+        message: str,
+        session_id: str,
+    ) -> AgentResponse:
+        """Answer a user message using retrieved transcript context."""
+
+        if not message.strip():
+            raise ValueError("Message cannot be empty.")
+
+        context, sources = build_retrieval_context(
+            message,
+            top_k=2,
+        )
+
+        if not context:
+            return AgentResponse(
+                answer=(
+                    "I couldn't find relevant material in the available "
+                    "Lenny transcript knowledge base to answer that question."
+                ),
+                sources=[],
+            )
+
+        prompt = self._build_prompt(
+            message=message,
+            context=context,
+        )
+
         answer = self.provider.generate(
             prompt,
             system_prompt=self.config.system_prompt,
@@ -59,3 +76,40 @@ User question:
             answer=answer,
             sources=sources,
         )
+
+    def run_stream(
+        self,
+        message: str,
+        session_id: str,
+    ) -> tuple[Iterator[str], list[dict]]:
+        """Stream a grounded answer using retrieved transcript context."""
+
+        if not message.strip():
+            raise ValueError("Message cannot be empty.")
+
+        context, sources = build_retrieval_context(
+            message,
+            top_k=2,
+        )
+
+        if not context:
+
+            def no_results() -> Iterator[str]:
+                yield (
+                    "I couldn't find relevant material in the available "
+                    "Lenny transcript knowledge base to answer that question."
+                )
+
+            return no_results(), []
+
+        prompt = self._build_prompt(
+            message=message,
+            context=context,
+        )
+
+        stream = self.provider.generate_stream(
+            prompt,
+            system_prompt=self.config.system_prompt,
+        )
+
+        return stream, sources

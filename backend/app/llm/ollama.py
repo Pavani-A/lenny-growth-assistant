@@ -1,4 +1,5 @@
 import os
+from collections.abc import Iterator
 
 import ollama
 from dotenv import load_dotenv
@@ -21,22 +22,22 @@ OLLAMA_MODEL = os.getenv(
 
 
 class OllamaProvider(LLMProvider):
-    """Generate responses using a local Ollama model."""
+    """Ollama implementation of the common LLM provider interface."""
 
-    def __init__(self) -> None:
-        self.client = ollama.Client(
-            host=OLLAMA_BASE_URL,
-        )
+    def __init__(self):
+        self.client = ollama.Client(host=OLLAMA_BASE_URL)
 
-    def generate(
+    def _build_messages(
         self,
         prompt: str,
         system_prompt: str | None = None,
-    ) -> str:
+    ) -> list[dict[str, str]]:
+        """Build messages shared by normal and streaming generation."""
+
         if not prompt.strip():
             raise ValueError("Prompt cannot be empty.")
 
-        messages = []
+        messages: list[dict[str, str]] = []
 
         if system_prompt:
             messages.append(
@@ -53,9 +54,47 @@ class OllamaProvider(LLMProvider):
             }
         )
 
+        return messages
+
+    def generate(
+        self,
+        prompt: str,
+        system_prompt: str | None = None,
+    ) -> str:
+        """Generate a complete response from Ollama."""
+
+        messages = self._build_messages(
+            prompt,
+            system_prompt,
+        )
+
         response = self.client.chat(
             model=OLLAMA_MODEL,
             messages=messages,
         )
 
         return response["message"]["content"]
+
+    def generate_stream(
+        self,
+        prompt: str,
+        system_prompt: str | None = None,
+    ) -> Iterator[str]:
+        """Generate a response from Ollama incrementally."""
+
+        messages = self._build_messages(
+            prompt,
+            system_prompt,
+        )
+
+        response = self.client.chat(
+            model=OLLAMA_MODEL,
+            messages=messages,
+            stream=True,
+        )
+
+        for chunk in response:
+            content = chunk["message"]["content"]
+
+            if content:
+                yield content
