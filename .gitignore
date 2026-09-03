@@ -28,3 +28,5 @@ htmlcov/
 *.log
 # Python package build metadata
 *.egg-info/
+# Local knowledge-base data
+data/
