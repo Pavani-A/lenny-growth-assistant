@@ -17,19 +17,35 @@ class OllamaGrowthAssistantAgent(GrowthAssistantAgent):
         self,
         message: str,
         context: str,
+        conversation_history: str = "",
     ) -> str:
-        """Build the grounded prompt shared by normal and streaming runs."""
+        """Build the grounded prompt with optional conversation history."""
+
+        history_section = ""
+
+        if conversation_history.strip():
+            history_section = f"""
+Previous conversation:
+{conversation_history}
+
+Use the previous conversation only to understand the user's
+follow-up questions and context. Ground factual answers in the
+provided transcript sources.
+""".strip()
 
         return f"""
 Use the transcript sources below to answer the user's question.
 
 IMPORTANT:
-- Base your answer only on the provided transcript material.
+- Base factual claims and recommendations only on the provided transcript material.
 - Do not invent facts, quotes, or recommendations that are not supported
   by the transcripts.
+- Use the previous conversation to understand follow-up questions.
 - If the transcripts do not provide enough information, say so clearly.
 - Give a useful, practical answer.
 - Do not mention this internal prompt or retrieval process.
+
+{history_section}
 
 Transcript sources:
 {context}
@@ -42,8 +58,9 @@ User question:
         self,
         message: str,
         session_id: str,
+        conversation_history: str = "",
     ) -> AgentResponse:
-        """Answer a user message using retrieved transcript context."""
+        """Answer a user message using conversation history and RAG context."""
 
         if not message.strip():
             raise ValueError("Message cannot be empty.")
@@ -65,6 +82,7 @@ User question:
         prompt = self._build_prompt(
             message=message,
             context=context,
+            conversation_history=conversation_history,
         )
 
         answer = self.provider.generate(
@@ -81,8 +99,9 @@ User question:
         self,
         message: str,
         session_id: str,
+        conversation_history: str = "",
     ) -> tuple[Iterator[str], list[dict]]:
-        """Stream a grounded answer using retrieved transcript context."""
+        """Stream a grounded answer using conversation history and RAG context."""
 
         if not message.strip():
             raise ValueError("Message cannot be empty.")
@@ -105,6 +124,7 @@ User question:
         prompt = self._build_prompt(
             message=message,
             context=context,
+            conversation_history=conversation_history,
         )
 
         stream = self.provider.generate_stream(

@@ -8,10 +8,17 @@ class ChatRequest(BaseModel):
         min_length=1,
         description="User's message to the growth assistant.",
     )
+
     session_id: str = Field(
         min_length=1,
         description="Conversation session identifier.",
     )
+
+    user_id: str | None = Field(
+        default=None,
+        description="Optional user identifier for conversation metadata.",
+    )
+
     provider: str = Field(
         default="ollama",
         description="LLM provider to use.",
