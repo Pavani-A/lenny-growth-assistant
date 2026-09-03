@@ -4,6 +4,7 @@ from app.retrieval.search import search_transcripts
 def build_retrieval_context(
     query: str,
     top_k: int = 5,
+    max_words_per_source: int = 500,
 ) -> tuple[str, list[dict]]:
     """Retrieve transcript chunks and format them for the agent."""
 
@@ -15,6 +16,10 @@ def build_retrieval_context(
     context_parts = []
 
     for index, result in enumerate(results, start=1):
+        transcript_excerpt = " ".join(
+            result["content"].split()[:max_words_per_source]
+        )
+
         context_parts.append(
             f"""Source {index}
 Episode: {result["episode_title"]}
@@ -23,7 +28,7 @@ Published: {result["published_date"] or "Unknown"}
 Source URL: {result["source_url"] or "Unavailable"}
 
 Transcript:
-{result["content"]}
+{transcript_excerpt}
 """
         )
 
