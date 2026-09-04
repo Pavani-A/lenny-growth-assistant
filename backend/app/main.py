@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 
+from app.api.artifact import router as artifact_router
 from app.api.chat import router as chat_router
 
 
@@ -18,3 +19,4 @@ def health_check():
 
 
 app.include_router(chat_router)
+app.include_router(artifact_router)
