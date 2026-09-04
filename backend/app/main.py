@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api.artifact import router as artifact_router
 from app.api.chat import router as chat_router
 from app.api.conversations import router as conversations_router
-
+from app.api.growth_assistant import router as growth_assistant_router
 
 app = FastAPI(
     title="Lenny Growth Assistant API",
@@ -31,3 +31,4 @@ def health_check():
 app.include_router(chat_router)
 app.include_router(artifact_router)
 app.include_router(conversations_router)
+app.include_router(growth_assistant_router)
