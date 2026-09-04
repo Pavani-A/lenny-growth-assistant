@@ -7,15 +7,6 @@ function createSessionId() {
   return crypto.randomUUID();
 }
 
-function formatTime(timestamp) {
-  if (!timestamp) return "";
-
-  return new Date(timestamp).toLocaleTimeString([], {
-    hour: "numeric",
-    minute: "2-digit",
-  });
-}
-
 function getConversationGroup(timestamp) {
   const date = new Date(timestamp);
   const now = new Date();
@@ -112,7 +103,9 @@ function App() {
       );
 
       if (!response.ok) {
-        throw new Error("Unable to load conversation history.");
+        throw new Error(
+          "Unable to load conversation history."
+        );
       }
 
       const data = await response.json();
@@ -186,16 +179,24 @@ function App() {
       created_at: new Date().toISOString(),
     };
 
+    const assistantMessage = {
+      role: "assistant",
+      content: "",
+      created_at: new Date().toISOString(),
+      sources: [],
+    };
+
     setMessages((currentMessages) => [
       ...currentMessages,
       userMessage,
+      assistantMessage,
     ]);
 
     setMessageInput("");
 
     try {
       const response = await fetch(
-        `${API_BASE_URL}/api/v1/chat`,
+        `${API_BASE_URL}/api/v1/chat/stream`,
         {
           method: "POST",
           headers: {
@@ -209,26 +210,157 @@ function App() {
         }
       );
 
-      const data = await response.json();
-
       if (!response.ok) {
+        let errorMessage =
+          "The assistant could not process your request.";
+
+        try {
+          const data = await response.json();
+
+          errorMessage =
+            data?.detail?.message || errorMessage;
+        } catch {
+          // Keep the default error message.
+        }
+
+        throw new Error(errorMessage);
+      }
+
+      if (!response.body) {
         throw new Error(
-          data?.detail?.message ||
-            "The assistant could not process your request."
+          "The server did not return a streaming response."
         );
       }
 
-      const assistantMessage = {
-        role: "assistant",
-        content: data.answer,
-        created_at: new Date().toISOString(),
-        sources: data.sources || [],
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+
+      let buffer = "";
+
+      const appendAssistantContent = (content) => {
+        if (!content) {
+          return;
+        }
+
+        setMessages((currentMessages) => {
+          const updatedMessages = [...currentMessages];
+
+          for (
+            let index = updatedMessages.length - 1;
+            index >= 0;
+            index -= 1
+          ) {
+            if (
+              updatedMessages[index].role ===
+              "assistant"
+            ) {
+              updatedMessages[index] = {
+                ...updatedMessages[index],
+                content:
+                  updatedMessages[index].content +
+                  content,
+              };
+
+              break;
+            }
+          }
+
+          return updatedMessages;
+        });
       };
 
-      setMessages((currentMessages) => [
-        ...currentMessages,
-        assistantMessage,
-      ]);
+      const setAssistantSources = (sources) => {
+        setMessages((currentMessages) => {
+          const updatedMessages = [...currentMessages];
+
+          for (
+            let index = updatedMessages.length - 1;
+            index >= 0;
+            index -= 1
+          ) {
+            if (
+              updatedMessages[index].role ===
+              "assistant"
+            ) {
+              updatedMessages[index] = {
+                ...updatedMessages[index],
+                sources: sources || [],
+              };
+
+              break;
+            }
+          }
+
+          return updatedMessages;
+        });
+      };
+
+      const processEvent = (eventText) => {
+        const lines = eventText.split("\n");
+
+        let eventName = "";
+        let data = "";
+
+        for (const line of lines) {
+          if (line.startsWith("event:")) {
+            eventName = line.slice(6).trim();
+          }
+
+          if (line.startsWith("data:")) {
+            data += line.slice(5).trim();
+          }
+        }
+
+        if (!eventName || !data) {
+          return;
+        }
+
+        try {
+          const parsedData = JSON.parse(data);
+
+          if (eventName === "token") {
+            appendAssistantContent(
+              parsedData.content || ""
+            );
+          }
+
+          if (eventName === "sources") {
+            setAssistantSources(
+              parsedData.sources || []
+            );
+          }
+        } catch (parseError) {
+          console.error(
+            "Could not parse SSE event:",
+            parseError
+          );
+        }
+      };
+
+      while (true) {
+        const { value, done } = await reader.read();
+
+        if (done) {
+          buffer += decoder.decode();
+          break;
+        }
+
+        buffer += decoder.decode(value, {
+          stream: true,
+        });
+
+        const events = buffer.split("\n\n");
+
+        buffer = events.pop() || "";
+
+        for (const event of events) {
+          processEvent(event);
+        }
+      }
+
+      if (buffer.trim()) {
+        processEvent(buffer);
+      }
 
       if (conversationTitle === "New conversation") {
         setConversationTitle(
@@ -244,11 +376,21 @@ function App() {
 
       setError(err.message);
 
-      setMessages((currentMessages) =>
-        currentMessages.filter(
-          (_, index) => index !== currentMessages.length - 1
-        )
-      );
+      setMessages((currentMessages) => {
+        const updatedMessages = [...currentMessages];
+
+        const lastMessage =
+          updatedMessages[updatedMessages.length - 1];
+
+        if (
+          lastMessage?.role === "assistant" &&
+          lastMessage?.content === ""
+        ) {
+          updatedMessages.pop();
+        }
+
+        return updatedMessages;
+      });
     } finally {
       setSending(false);
     }
@@ -308,7 +450,7 @@ function App() {
             onClick={() =>
               loadConversation(conversation.session_id)
             }
-            disabled={loadingConversation}
+            disabled={loadingConversation || sending}
           >
             <span>{conversation.title}</span>
           </button>
@@ -334,23 +476,28 @@ function App() {
           <button
             className="new-chat-button"
             onClick={startNewChat}
+            disabled={sending}
           >
             <span>+</span>
             New chat
           </button>
 
           <div className="conversation-section">
-            {loadingHistory && conversations.length === 0 ? (
+            {loadingHistory &&
+            conversations.length === 0 ? (
               <div className="section-label">
                 Loading conversations...
               </div>
             ) : (
               <>
                 {renderConversationGroup("Today")}
+
                 {renderConversationGroup("Yesterday")}
+
                 {renderConversationGroup(
                   "Previous 7 days"
                 )}
+
                 {renderConversationGroup("Older")}
               </>
             )}
@@ -401,33 +548,44 @@ function App() {
                 onChange={(event) =>
                   setProvider(event.target.value)
                 }
+                disabled={sending}
               >
-                <option value="ollama">Ollama</option>
-                <option value="claude">Claude</option>
-                <option value="openai">OpenAI</option>
+                <option value="ollama">
+                  Ollama
+                </option>
+
+                <option value="claude">
+                  Claude
+                </option>
+
+                <option value="openai">
+                  OpenAI
+                </option>
               </select>
             </div>
           </header>
 
           {/* Only this area scrolls */}
           <div className="messages">
-            {messages.length === 0 && (
-              <div className="message assistant-message">
-                <div className="avatar">L</div>
+            {messages.length === 0 &&
+              !loadingConversation && (
+                <div className="message assistant-message">
+                  <div className="avatar">L</div>
 
-                <div className="message-content">
-                  <div className="message-name">
-                    Lenny Growth Assistant
+                  <div className="message-content">
+                    <div className="message-name">
+                      Lenny Growth Assistant
+                    </div>
+
+                    <p>
+                      Hi! I can help you think through
+                      product and growth questions using
+                      the available Lenny's Podcast
+                      transcripts.
+                    </p>
                   </div>
-
-                  <p>
-                    Hi! I can help you think through
-                    product and growth questions using the
-                    available Lenny's Podcast transcripts.
-                  </p>
                 </div>
-              </div>
-            )}
+              )}
 
             {loadingConversation && (
               <div className="message assistant-message">
@@ -463,13 +621,20 @@ function App() {
                     </div>
                   )}
 
-                  {message.content
-                    .split("\n\n")
-                    .map((paragraph, paragraphIndex) => (
-                      <p key={paragraphIndex}>
-                        {paragraph}
-                      </p>
-                    ))}
+                  {message.content ? (
+                    message.content
+                      .split("\n\n")
+                      .map(
+                        (paragraph, paragraphIndex) => (
+                          <p key={paragraphIndex}>
+                            {paragraph}
+                          </p>
+                        )
+                      )
+                  ) : sending &&
+                    index === messages.length - 1 ? (
+                    <p>Thinking...</p>
+                  ) : null}
 
                   {message.sources &&
                     message.sources.length > 0 && (
@@ -490,7 +655,9 @@ function App() {
                                 </strong>
 
                                 <span>
-                                  {source.episode_title}
+                                  {
+                                    source.episode_title
+                                  }
                                 </span>
                               </div>
 
@@ -513,7 +680,9 @@ function App() {
                                   </strong>
 
                                   <span>
-                                    {source.published_date}
+                                    {
+                                      source.published_date
+                                    }
                                   </span>
                                 </div>
                               )}
@@ -571,34 +740,6 @@ function App() {
                 </div>
               </div>
             ))}
-
-            {sending && (
-              <div className="message assistant-message">
-                <div className="avatar">L</div>
-
-                <div className="message-content">
-                  <div className="message-name">
-                    Lenny Growth Assistant
-                  </div>
-
-                  <p>Thinking...</p>
-                </div>
-              </div>
-            )}
-
-            {error && (
-              <div className="message assistant-message">
-                <div className="avatar">!</div>
-
-                <div className="message-content">
-                  <div className="message-name">
-                    Something went wrong
-                  </div>
-
-                  <p>{error}</p>
-                </div>
-              </div>
-            )}
           </div>
 
           {/* Fixed composer */}
@@ -624,7 +765,8 @@ function App() {
                   className="send-button"
                   onClick={sendMessage}
                   disabled={
-                    sending || !messageInput.trim()
+                    sending ||
+                    !messageInput.trim()
                   }
                   aria-label="Send message"
                 >
