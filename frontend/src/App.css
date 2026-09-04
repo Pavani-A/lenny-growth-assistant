@@ -179,6 +179,7 @@
   display: flex;
   flex-direction: column;
   background: #ffffff;
+  flex-shrink: 0;
 }
 
 .chat-header,
@@ -399,12 +400,13 @@
 /* ---------------- Artifact ---------------- */
 
 .artifact-panel {
-  min-width: 25%;
-  max-width: 50%;
+  min-width: 0;
+  max-width: none;
   height: 100%;
   display: flex;
   flex-direction: column;
   background: #fafaf8;
+  flex-shrink: 0;
 }
 
 .artifact-content {

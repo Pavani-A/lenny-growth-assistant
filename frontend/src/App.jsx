@@ -60,39 +60,60 @@ function App() {
   const [conversationTitle, setConversationTitle] =
     useState("New conversation");
 
-  const handleDividerDrag = (event) => {
-    const container = event.currentTarget.parentElement;
-    const rect = container.getBoundingClientRect();
+  // Artifact state
+  const [artifact, setArtifact] = useState(null);
+  const [artifactLoading, setArtifactLoading] = useState(false);
+  const [artifactError, setArtifactError] = useState("");
 
-    const newWidth =
-      ((rect.right - event.clientX) / rect.width) * 100;
+  const handleDividerDrag = (clientX, container) => {
+  const rect = container.getBoundingClientRect();
 
-    const clampedWidth = Math.min(
-      Math.max(newWidth, 25),
-      50
+  const newWidth =
+    ((rect.right - clientX) / rect.width) * 100;
+
+  const clampedWidth = Math.min(
+    Math.max(newWidth, 25),
+    70
+  );
+
+  setArtifactWidth(clampedWidth);
+};
+
+const startDragging = (event) => {
+  event.preventDefault();
+
+  // Capture the container immediately while the React event is valid.
+  const container = event.currentTarget.parentElement;
+
+  const handleMove = (moveEvent) => {
+    handleDividerDrag(
+      moveEvent.clientX,
+      container
+    );
+  };
+
+  const stopDragging = () => {
+    window.removeEventListener(
+      "pointermove",
+      handleMove
     );
 
-    setArtifactWidth(clampedWidth);
+    window.removeEventListener(
+      "pointerup",
+      stopDragging
+    );
   };
 
-  const startDragging = (event) => {
-    event.preventDefault();
+  window.addEventListener(
+    "pointermove",
+    handleMove
+  );
 
-    const handleMove = (moveEvent) => {
-      handleDividerDrag({
-        currentTarget: event.currentTarget,
-        clientX: moveEvent.clientX,
-      });
-    };
-
-    const stopDragging = () => {
-      window.removeEventListener("pointermove", handleMove);
-      window.removeEventListener("pointerup", stopDragging);
-    };
-
-    window.addEventListener("pointermove", handleMove);
-    window.addEventListener("pointerup", stopDragging);
-  };
+  window.addEventListener(
+    "pointerup",
+    stopDragging
+  );
+};
 
   const loadConversations = async () => {
     try {
@@ -123,6 +144,9 @@ function App() {
     try {
       setLoadingConversation(true);
       setError("");
+
+      setArtifact(null);
+      setArtifactError("");
 
       const response = await fetch(
         `${API_BASE_URL}/api/v1/conversations/${encodeURIComponent(
@@ -161,6 +185,9 @@ function App() {
     setMessageInput("");
     setConversationTitle("New conversation");
     setError("");
+
+    setArtifact(null);
+    setArtifactError("");
   };
 
   const sendMessage = async () => {
@@ -400,6 +427,103 @@ function App() {
     if (event.key === "Enter" && !event.shiftKey) {
       event.preventDefault();
       sendMessage();
+    }
+  };
+
+  /*
+   * Generate an artifact from the current conversation.
+   *
+   * The backend contract is:
+   *
+   * POST /api/v1/artifacts
+   *
+   * {
+   *   prompt,
+   *   session_id,
+   *   provider
+   * }
+   *
+   * Response:
+   *
+   * {
+   *   session_id,
+   *   provider,
+   *   artifact: {
+   *     type,
+   *     title,
+   *     content
+   *   }
+   * }
+   */
+  const createArtifact = async () => {
+    if (artifactLoading) {
+      return;
+    }
+
+    if (messages.length === 0) {
+      setArtifactError(
+        "Start a conversation before creating an artifact."
+      );
+      return;
+    }
+
+    setArtifactLoading(true);
+    setArtifactError("");
+    setArtifactOpen(true);
+
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/api/v1/artifacts`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            prompt:
+              "Create a useful product or growth artifact based on the current conversation. Use the conversation context to determine the most useful artifact. Prefer a complete HTML artifact when a visual presentation is useful. Make it clear, practical, skimmable, and grounded in the transcript-based discussion.",
+            session_id: sessionId,
+            provider,
+          }),
+        }
+      );
+
+      let data;
+
+      try {
+        data = await response.json();
+      } catch {
+        throw new Error(
+          "The artifact service returned an invalid response."
+        );
+      }
+
+      if (!response.ok) {
+        throw new Error(
+          data?.detail?.message ||
+            "The artifact could not be generated."
+        );
+      }
+
+      if (
+        !data.artifact ||
+        !data.artifact.type ||
+        !data.artifact.title ||
+        !data.artifact.content
+      ) {
+        throw new Error(
+          "The server returned an incomplete artifact."
+        );
+      }
+
+      setArtifact(data.artifact);
+    } catch (err) {
+      console.error(err);
+
+      setArtifact(null);
+      setArtifactError(err.message);
+    } finally {
+      setArtifactLoading(false);
     }
   };
 
@@ -740,6 +864,20 @@ function App() {
                 </div>
               </div>
             ))}
+
+            {error && (
+              <div className="message assistant-message">
+                <div className="avatar">!</div>
+
+                <div className="message-content">
+                  <div className="message-name">
+                    Something went wrong
+                  </div>
+
+                  <p>{error}</p>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Fixed composer */}
@@ -807,7 +945,10 @@ function App() {
                     ARTIFACT
                   </span>
 
-                  <h2>Artifact Viewer</h2>
+                  <h2>
+                    {artifact?.title ||
+                      "Artifact Viewer"}
+                  </h2>
                 </div>
 
                 <button
@@ -822,30 +963,126 @@ function App() {
               </header>
 
               <div className="artifact-content">
-                <div className="artifact-placeholder">
-                  <div className="artifact-icon">
-                    ✦
+                {/* Loading state */}
+                {artifactLoading && (
+                  <div className="artifact-placeholder">
+                    <div className="artifact-icon">
+                      ✦
+                    </div>
+
+                    <h3>
+                      Generating artifact...
+                    </h3>
+
+                    <p>
+                      Lenny is creating an artifact
+                      from the current conversation.
+                    </p>
                   </div>
+                )}
 
-                  <h3>
-                    Your artifact will appear here
-                  </h3>
+                {/* Error state */}
+                {!artifactLoading &&
+                  artifactError && (
+                    <div className="artifact-placeholder">
+                      <div className="artifact-icon">
+                        !
+                      </div>
 
-                  <p>
-                    Generate a checklist, framework,
-                    comparison, dashboard, or other visual
-                    artifact from the conversation.
-                  </p>
+                      <h3>
+                        Artifact generation failed
+                      </h3>
 
-                  <button className="create-artifact-button">
-                    ✦ Create artifact
-                  </button>
-                </div>
+                      <p>{artifactError}</p>
+
+                      <button
+                        className="create-artifact-button"
+                        onClick={createArtifact}
+                      >
+                        Try again
+                      </button>
+                    </div>
+                  )}
+
+                {/* Empty state */}
+                {!artifactLoading &&
+                  !artifactError &&
+                  !artifact && (
+                    <div className="artifact-placeholder">
+                      <div className="artifact-icon">
+                        ✦
+                      </div>
+
+                      <h3>
+                        Your artifact will appear
+                        here
+                      </h3>
+
+                      <p>
+                        Generate a checklist, framework,
+                        comparison, dashboard, or other
+                        visual artifact from the
+                        conversation.
+                      </p>
+
+                      <button
+                        className="create-artifact-button"
+                        onClick={createArtifact}
+                        disabled={messages.length === 0}
+                      >
+                        ✦ Create artifact
+                      </button>
+                    </div>
+                  )}
+
+                {/* Generated artifact */}
+                {!artifactLoading &&
+                  !artifactError &&
+                  artifact && (
+                    <div
+                      className="generated-artifact"
+                      style={{
+                        height: "100%",
+                      }}
+                    >
+                      {artifact.type === "html" ? (
+                        <iframe
+                          title={artifact.title}
+                          srcDoc={artifact.content}
+                          sandbox=""
+                          style={{
+                            width: "100%",
+                            height: "100%",
+                            minHeight: "600px",
+                            border: "0",
+                            background: "#ffffff",
+                          }}
+                        />
+                      ) : (
+                        <div
+                          style={{
+                            whiteSpace: "pre-wrap",
+                            background: "#ffffff",
+                            padding: "20px",
+                            borderRadius: "8px",
+                            minHeight: "100%",
+                            fontFamily:
+                              "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace",
+                            fontSize: "12px",
+                            lineHeight: "1.6",
+                          }}
+                        >
+                          {artifact.content}
+                        </div>
+                      )}
+                    </div>
+                  )}
               </div>
             </aside>
           </>
         )}
 
+        {/* Re-open artifact panel */}
         {!artifactOpen && (
           <button
             className="open-artifact-button"
