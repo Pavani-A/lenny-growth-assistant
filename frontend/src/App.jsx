@@ -65,6 +65,11 @@ function App() {
   const [artifact, setArtifact] = useState(null);
   const [artifactLoading, setArtifactLoading] = useState(false);
   const [artifactError, setArtifactError] = useState("");
+  const [ship30Topic, setShip30Topic] = useState("");
+  const [ship30Open, setShip30Open] = useState(false);
+  const [ship30Error, setShip30Error] = useState("");
+  const [ship30Loading, setShip30Loading] = useState(false);
+  const [artifactMode, setArtifactMode] = useState("artifact");
 
   const handleDividerDrag = (clientX, container) => {
     const rect = container.getBoundingClientRect();
@@ -549,6 +554,8 @@ function App() {
         );
       }
 
+      setArtifactMode("artifact");
+      setShip30Open(false);
       setArtifact(data.artifact);
     } catch (err) {
       console.error(err);
@@ -557,6 +564,80 @@ function App() {
       setArtifactError(err.message);
     } finally {
       setArtifactLoading(false);
+    }
+  };
+    const generateShip30 = async () => {
+    const topic = ship30Topic.trim();
+
+    if (!topic) {
+      setShip30Error("Enter a topic for the Ship 30 article.");
+      return;
+    }
+
+    if (ship30Loading) {
+      return;
+    }
+
+    setShip30Loading(true);
+    setShip30Error("");
+    setArtifactError("");
+    setArtifactOpen(true);
+
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/growth-assistant/ship30`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            topic,
+          }),
+        }
+      );
+
+      let data;
+
+      try {
+        data = await response.json();
+      } catch {
+        throw new Error(
+          "The Ship 30 service returned an invalid response."
+        );
+      }
+
+      if (!response.ok) {
+        throw new Error(
+          data?.detail ||
+            "The Ship 30 article could not be generated."
+        );
+      }
+
+      if (
+        !data.article ||
+        !data.sources ||
+        typeof data.word_count !== "number"
+      ) {
+        throw new Error(
+          "The server returned an incomplete Ship 30 response."
+        );
+      }
+
+      setArtifact({
+        type: "markdown",
+        title: `Ship 30 for 30 — ${topic}`,
+        content: data.article,
+      });
+
+      setArtifactMode("ship30");
+      setShip30Open(false);
+      setShip30Topic("");
+    } catch (err) {
+      console.error(err);
+      setShip30Error(err.message);
+    } finally {
+      setShip30Loading(false);
     }
   };
 
@@ -1023,21 +1104,139 @@ function App() {
                       "Artifact Viewer"}
                   </h2>
                 </div>
+<div className="artifact-header-actions">
+  <button
+    className="create-artifact-header-button"
+    onClick={() => {
+      setShip30Open(false);
+      setArtifactMode("artifact");
+      setArtifact(null);
+      setArtifactError("");
+      createArtifact();
+    }}
+    disabled={artifactLoading || sending}
+  >
+    ✦ Create artifact
+  </button>
 
-                <button
-                  className="close-artifact"
-                  onClick={() =>
-                    setArtifactOpen(false)
-                  }
-                  aria-label="Close artifact viewer"
-                >
-                  ×
-                </button>
+  <button
+    className="ship30-header-button"
+    onClick={() => {
+      setArtifactOpen(true);
+      setShip30Open(true);
+      setArtifactMode("ship30");
+      setArtifact(null);
+      setArtifactError("");
+      setShip30Error("");
+    }}
+    disabled={ship30Loading || sending}
+  >
+    ✦ Ship 30 for 30
+  </button>
+
+  <button
+    className="close-artifact"
+    onClick={() => {
+      setArtifactOpen(false);
+      setShip30Open(false);
+    }}
+    aria-label="Close artifact viewer"
+  >
+    ×
+  </button>
+</div>
+                  
+ 
+                
+                
               </header>
 
               <div className="artifact-content">
+                {ship30Open && (
+  <div className="ship30-panel">
+    <div className="ship30-panel-header">
+      <div>
+        <span className="eyebrow">SHIP 30 FOR 30</span>
+        <h3>Turn a growth question into an essay</h3>
+      </div>
+
+      <button
+        className="ship30-close"
+        onClick={() => {
+          setShip30Open(false);
+          setShip30Error("");
+          setArtifactMode("artifact");
+          setArtifact(null);
+          setArtifactError("");
+        }}
+        aria-label="Close Ship 30 panel"
+      >
+        ×
+      </button>
+    </div>
+
+    <p className="ship30-description">
+      Generate a roughly 1,250-word Ship 30-style essay
+      grounded in Lenny's Podcast transcripts.
+    </p>
+
+    <label
+      className="ship30-label"
+      htmlFor="ship30-topic"
+    >
+      Topic
+    </label>
+
+    <textarea
+      id="ship30-topic"
+      className="ship30-input"
+      value={ship30Topic}
+      onChange={(event) =>
+        setShip30Topic(event.target.value)
+      }
+      placeholder="e.g. How startups should find product-market fit"
+      rows={4}
+      disabled={ship30Loading}
+    />
+
+    {ship30Error && (
+      <div className="ship30-error">
+        {ship30Error}
+      </div>
+    )}
+
+    <div className="ship30-actions">
+      <button
+        className="ship30-cancel-button"
+        onClick={() => {
+          setShip30Open(false);
+          setShip30Error("");
+          setArtifactMode("artifact");
+          setArtifact(null);
+          setArtifactError("");
+        }}
+        disabled={ship30Loading}
+      >
+        Cancel
+      </button>
+
+      <button
+        className="ship30-generate-button"
+        onClick={generateShip30}
+        disabled={
+          ship30Loading ||
+          !ship30Topic.trim()
+        }
+      >
+        {ship30Loading
+          ? "Writing article..."
+          : "Generate Ship 30"}
+      </button>
+    </div>
+  </div>
+)}
                 {/* Loading state */}
-                {artifactLoading && (
+                {!ship30Open && artifactLoading && (
                   <div className="artifact-placeholder">
                     <div className="artifact-icon">
                       ✦
@@ -1055,8 +1254,9 @@ function App() {
                 )}
 
                 {/* Error state */}
-                {!artifactLoading &&
-                  artifactError && (
+                {!ship30Open &&
+  !artifactLoading &&
+  artifactError && (
                     <div className="artifact-placeholder">
                       <div className="artifact-icon">
                         !
@@ -1078,7 +1278,8 @@ function App() {
                   )}
 
                 {/* Empty state */}
-                {!artifactLoading &&
+                {!ship30Open &&
+                !artifactLoading &&
                   !artifactError &&
                   !artifact && (
                     <div className="artifact-placeholder">
@@ -1098,13 +1299,13 @@ function App() {
                         conversation.
                       </p>
 
-                      <button
-                        className="create-artifact-button"
-                        onClick={createArtifact}
-                        disabled={messages.length === 0}
-                      >
-                        ✦ Create artifact
-                      </button>
+                    <button
+  className="create-artifact-button"
+  onClick={createArtifact}
+  disabled={artifactLoading || messages.length === 0}
+>
+  ✦ Create artifact
+</button>
                     </div>
                   )}
 

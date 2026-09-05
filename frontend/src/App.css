@@ -627,3 +627,155 @@
   opacity: 0.5;
   cursor: not-allowed;
 }
+/* Ship 30 for 30 */
+
+.artifact-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ship30-header-button {
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.06);
+  color: inherit;
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.ship30-header-button:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.25);
+}
+
+.ship30-panel {
+  margin: 16px;
+  padding: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.045);
+}
+
+.ship30-panel-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.ship30-panel-header h3 {
+  margin: 6px 0 0;
+  font-size: 20px;
+}
+
+.ship30-close {
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font-size: 22px;
+  cursor: pointer;
+  opacity: 0.7;
+}
+
+.ship30-description {
+  margin: 12px 0 18px;
+  font-size: 13px;
+  line-height: 1.6;
+  opacity: 0.7;
+}
+
+.ship30-label {
+  display: block;
+  margin-bottom: 7px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.ship30-input {
+  width: 100%;
+  box-sizing: border-box;
+  resize: vertical;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.18);
+  color: inherit;
+  padding: 12px;
+  font: inherit;
+  font-size: 13px;
+  line-height: 1.5;
+  outline: none;
+}
+
+.ship30-input:focus {
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+.ship30-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.ship30-cancel-button,
+.ship30-generate-button {
+  border-radius: 8px;
+  padding: 9px 14px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.ship30-cancel-button {
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: transparent;
+  color: inherit;
+}
+
+.ship30-generate-button {
+  border: 0;
+  background: #111111;
+  color: #ffffff;
+}
+
+.ship30-generate-button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.ship30-error {
+  margin-top: 10px;
+  padding: 9px 11px;
+  border-radius: 8px;
+  font-size: 12px;
+  background: rgba(255, 80, 80, 0.08);
+}
+.create-artifact-header-button {
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: transparent;
+  color: inherit;
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.create-artifact-header-button:hover {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.25);
+}
+
+.create-artifact-header-button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.artifact-header-actions button.active {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.3);
+}
