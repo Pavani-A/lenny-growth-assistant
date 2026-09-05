@@ -29,3 +29,16 @@ class GrowthAssistantResponse(BaseModel):
 
     answer: str
     sources: list[GrowthAssistantSource]
+
+class Ship30Request(BaseModel):
+    """Request body for Ship 30 for 30 article generation."""
+
+    topic: str = Field(min_length=1)
+
+
+class Ship30Response(BaseModel):
+    """Response returned by the Ship 30 for 30 generator."""
+
+    article: str
+    sources: list[GrowthAssistantSource]
+    word_count: int

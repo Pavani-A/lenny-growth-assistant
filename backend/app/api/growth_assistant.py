@@ -7,6 +7,8 @@ from app.schemas.growth_assistant import (
     GrowthAssistantRequest,
     GrowthAssistantResponse,
     GrowthAssistantSource,
+    Ship30Request,
+    Ship30Response,
 )
 from app.services.growth_assistant_service import GrowthAssistantService
 
@@ -15,27 +17,6 @@ router = APIRouter(
     prefix="/growth-assistant",
     tags=["Growth Assistant"],
 )
-
-
-def _deduplicate_sources(sources: list[dict]) -> list[dict]:
-    """Remove duplicate transcript chunks from the source list."""
-
-    unique_sources = []
-    seen_sources = set()
-
-    for source in sources:
-        source_key = (
-            source["episode_title"],
-            source["chunk_index"],
-        )
-
-        if source_key in seen_sources:
-            continue
-
-        seen_sources.add(source_key)
-        unique_sources.append(source)
-
-    return unique_sources
 
 
 @router.post(
@@ -55,11 +36,9 @@ def growth_assistant(
             top_k=request.top_k,
         )
 
-        unique_sources = _deduplicate_sources(sources)
-
         formatted_sources = [
             GrowthAssistantSource(**source)
-            for source in unique_sources
+            for source in sources
         ]
 
         return GrowthAssistantResponse(
@@ -103,13 +82,11 @@ def growth_assistant_stream(
                         f"data: {json.dumps({'content': chunk})}\n\n"
                     )
 
-                unique_sources = _deduplicate_sources(sources)
-
                 formatted_sources = [
                     GrowthAssistantSource(**source).model_dump(
                         mode="json"
                     )
-                    for source in unique_sources
+                    for source in sources
                 ]
 
                 yield (
@@ -151,4 +128,44 @@ def growth_assistant_stream(
         raise HTTPException(
             status_code=500,
             detail=f"Growth Assistant failed: {exc}",
+        ) from exc
+
+
+@router.post(
+    "/ship30",
+    response_model=Ship30Response,
+)
+def generate_ship30(
+    request: Ship30Request,
+):
+    """Generate a grounded Ship 30 for 30 article."""
+
+    try:
+        service = GrowthAssistantService()
+
+        article, sources, word_count = service.generate_ship30(
+            topic=request.topic,
+        )
+
+        formatted_sources = [
+            GrowthAssistantSource(**source)
+            for source in sources
+        ]
+
+        return Ship30Response(
+            article=article,
+            sources=formatted_sources,
+            word_count=word_count,
+        )
+
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=400,
+            detail=str(exc),
+        ) from exc
+
+    except Exception as exc:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Ship 30 generation failed: {exc}",
         ) from exc

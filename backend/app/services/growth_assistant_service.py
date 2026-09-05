@@ -1,6 +1,7 @@
 from collections.abc import Iterator
 
 from app.agent.grounded_agent import GroundedLennyAgent
+from app.agent.ollama_agent import OllamaGrowthAssistantAgent
 from app.db.database import SessionLocal
 from app.repositories.conversation_repository import ConversationRepository
 
@@ -75,6 +76,29 @@ class GrowthAssistantService:
         )
 
         return result.answer, result.sources
+
+    def generate_ship30(
+        self,
+        topic: str,
+    ) -> tuple[str, list[dict], int]:
+        """Generate a grounded Ship 30 for 30 article."""
+
+        if not topic.strip():
+            raise ValueError("Topic cannot be empty.")
+
+        ship30_agent = OllamaGrowthAssistantAgent()
+
+        result = ship30_agent.run_ship_30_for_30(
+            topic=topic,
+        )
+
+        word_count = len(result.answer.split())
+
+        return (
+            result.answer,
+            result.sources,
+            word_count,
+        )
 
     def stream_answer(
         self,
