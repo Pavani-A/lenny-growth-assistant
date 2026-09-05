@@ -19,8 +19,13 @@ Rules:
    material does not provide enough evidence.
 6. Give a useful, clear answer rather than simply repeating the
    transcripts.
-
-Retrieved transcript context:
+7. Provide a sufficiently detailed answer when the transcript context
+   supports it. Synthesize relevant information from multiple retrieved
+   transcript sections when useful. Include explanations, examples,
+   comparisons, or takeaways when they are supported by the transcripts.
+8. When conversation history is provided, use it only to understand
+   references and follow-up questions. Do not treat conversation
+   history as evidence. Transcript context is the only source of truth.
 """
 
 
@@ -45,18 +50,66 @@ class GroundedLennyAgent:
             model=model,
         )
 
+    def _build_prompt(
+        self,
+        question: str,
+        context: str,
+        conversation_history: str = "",
+    ) -> str:
+        """Build the grounded prompt with optional conversation history."""
+
+        if conversation_history.strip():
+            history_section = f"""
+PREVIOUS CONVERSATION:
+{conversation_history}
+
+Use the previous conversation ONLY to understand references,
+follow-up questions, and what the user is referring to.
+
+Do NOT treat previous assistant answers as factual evidence.
+"""
+
+        else:
+            history_section = """
+PREVIOUS CONVERSATION:
+None
+"""
+
+        return f"""{SYSTEM_PROMPT}
+
+{history_section}
+
+RETRIEVED TRANSCRIPT CONTEXT:
+{context}
+
+CURRENT USER QUESTION:
+{question}
+
+Answer the CURRENT USER QUESTION.
+
+Use the previous conversation only to understand what the user means.
+Use ONLY the retrieved transcript context as factual evidence.
+
+If the transcript context does not support a claim, do not present that
+claim as a fact.
+"""
+
     def answer(
         self,
         question: str,
         top_k: int = 5,
+        conversation_history: str = "",
+        retrieval_query: str | None = None,
     ) -> GroundedAgentResult:
         """Retrieve transcript context and generate a grounded answer."""
 
         if not question.strip():
             raise ValueError("Question cannot be empty.")
 
+        search_query = retrieval_query or question
+
         context, sources = build_grounded_context(
-            question,
+            search_query,
             top_k=top_k,
         )
 
@@ -69,15 +122,11 @@ class GroundedLennyAgent:
                 sources=[],
             )
 
-        prompt = f"""{SYSTEM_PROMPT}
-
-{context}
-
-USER QUESTION:
-{question}
-
-Answer the user's question using only the transcript context above.
-"""
+        prompt = self._build_prompt(
+            question=question,
+            context=context,
+            conversation_history=conversation_history,
+        )
 
         answer = self.agent.generate(prompt)
 
@@ -90,14 +139,18 @@ Answer the user's question using only the transcript context above.
         self,
         question: str,
         top_k: int = 5,
+        conversation_history: str = "",
+        retrieval_query: str | None = None,
     ):
         """Retrieve transcript context and stream a grounded answer."""
 
         if not question.strip():
             raise ValueError("Question cannot be empty.")
 
+        search_query = retrieval_query or question
+
         context, sources = build_grounded_context(
-            question,
+            search_query,
             top_k=top_k,
         )
 
@@ -112,15 +165,11 @@ Answer the user's question using only the transcript context above.
 
             return empty_context_stream(), []
 
-        prompt = f"""{SYSTEM_PROMPT}
-
-{context}
-
-USER QUESTION:
-{question}
-
-Answer the user's question using only the transcript context above.
-"""
+        prompt = self._build_prompt(
+            question=question,
+            context=context,
+            conversation_history=conversation_history,
+        )
 
         stream = self.agent.generate_stream(prompt)
 

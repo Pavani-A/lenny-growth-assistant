@@ -17,6 +17,27 @@ router = APIRouter(
 )
 
 
+def _deduplicate_sources(sources: list[dict]) -> list[dict]:
+    """Remove duplicate transcript chunks from the source list."""
+
+    unique_sources = []
+    seen_sources = set()
+
+    for source in sources:
+        source_key = (
+            source["episode_title"],
+            source["chunk_index"],
+        )
+
+        if source_key in seen_sources:
+            continue
+
+        seen_sources.add(source_key)
+        unique_sources.append(source)
+
+    return unique_sources
+
+
 @router.post(
     "",
     response_model=GrowthAssistantResponse,
@@ -34,9 +55,11 @@ def growth_assistant(
             top_k=request.top_k,
         )
 
+        unique_sources = _deduplicate_sources(sources)
+
         formatted_sources = [
             GrowthAssistantSource(**source)
-            for source in sources
+            for source in unique_sources
         ]
 
         return GrowthAssistantResponse(
@@ -68,6 +91,7 @@ def growth_assistant_stream(
 
         stream, sources = service.stream_answer(
             message=request.message,
+            session_id=request.session_id,
             top_k=request.top_k,
         )
 
@@ -79,11 +103,13 @@ def growth_assistant_stream(
                         f"data: {json.dumps({'content': chunk})}\n\n"
                     )
 
+                unique_sources = _deduplicate_sources(sources)
+
                 formatted_sources = [
                     GrowthAssistantSource(**source).model_dump(
                         mode="json"
                     )
-                    for source in sources
+                    for source in unique_sources
                 ]
 
                 yield (

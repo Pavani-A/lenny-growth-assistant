@@ -253,6 +253,7 @@ function App() {
       const requestBody = piAgentMode
         ? {
             message,
+            session_id: sessionId,
             top_k: 5,
           }
         : {
