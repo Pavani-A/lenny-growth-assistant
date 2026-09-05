@@ -484,3 +484,154 @@ View Artifact
 The implemented design therefore reflects the current application architecture while keeping the core interface focused on grounded conversational assistance.
 
 
+---
+
+# 19. Design Decisions & Trade-offs
+
+## 19.1 Conversation-First Layout
+
+### Decision
+
+The primary interface is organized around the conversation rather than exposing implementation details.
+
+### Reason
+
+The main user goal is to ask a product or growth question and understand the answer quickly.
+
+Technical details such as retrieval, embeddings, and provider configuration should not dominate the main interaction.
+
+---
+
+## 19.2 Visible Sources
+
+### Decision
+
+Supporting transcript sources are displayed alongside grounded answers.
+
+### Reason
+
+The assistant is intentionally designed around trust and grounded responses.
+
+Showing the episode, guest, transcript section, and source links allows the user to inspect the evidence behind an answer.
+
+### Trade-off
+
+Displaying source information adds visual complexity, but this is considered worthwhile because source transparency is a core product requirement.
+
+---
+
+## 19.3 Explicit Provider Selection
+
+### Decision
+
+The user explicitly selects Ollama, Claude, or OpenAI.
+
+### Reason
+
+Explicit selection makes provider behavior predictable and makes the architecture easy to demonstrate.
+
+### Trade-off
+
+The user has to understand which provider they are selecting instead of the application automatically choosing one.
+
+Automatic fallback was intentionally avoided because it could hide configuration problems and make failures difficult to diagnose.
+
+---
+
+## 19.4 Pi Agent as a Separate Mode
+
+### Decision
+
+Pi Coding Agent is exposed through a dedicated toggle rather than replacing the normal chat flow.
+
+### Reason
+
+This makes the agent-based architecture visible while preserving a simple default conversational experience.
+
+When Pi mode is enabled, Ollama is used for the local demonstration and the normal provider selector is disabled.
+
+---
+
+## 19.5 Sandboxed Artifact Viewer
+
+### Decision
+
+Generated HTML/CSS is rendered inside a sandboxed iframe.
+
+### Reason
+
+Generated HTML is untrusted content and should not have unrestricted access to the parent application.
+
+### Trade-off
+
+The sandbox introduces some browser restrictions, but the isolation is preferable to directly injecting generated HTML into the main application.
+
+---
+
+## 19.6 Streaming Responses
+
+### Decision
+
+Assistant responses are streamed using Server-Sent Events.
+
+### Reason
+
+Streaming allows users to start reading the response before generation has completely finished.
+
+### Trade-off
+
+Streaming introduces additional frontend and backend state handling compared with a single request/response operation, but it provides a more responsive conversational experience.
+
+---
+
+## 19.7 Sidebar + Main Content Structure
+
+### Decision
+
+The application uses a sidebar for navigation and controls, with the main area dedicated to the active conversation and artifacts.
+
+### Reason
+
+This separates persistent navigation and configuration from the primary conversational task.
+
+The structure also makes conversation history easy to access without taking attention away from the current response.
+
+---
+
+## 19.8 Minimal Visual Design
+
+### Decision
+
+The interface intentionally uses a clean and minimal visual style.
+
+### Reason
+
+The product is information-heavy. Excessive decoration could make long AI responses, sources, and generated artifacts harder to scan.
+
+The visual system therefore prioritizes hierarchy, readability, source visibility, and interaction clarity over decorative elements.
+
+---
+
+## 19.9 Responsive Behavior
+
+### Decision
+
+The interface prioritizes common desktop viewport sizes while keeping the core interaction usable across smaller viewport widths.
+
+### Reason
+
+The assignment's primary evaluation is a web application demonstration, so the design prioritizes the desktop conversational workflow while avoiding layouts that depend on a single fixed viewport.
+
+---
+
+## 19.10 Accessibility
+
+### Decision
+
+Interactive controls use clear labels and the interface maintains readable typography and visual hierarchy.
+
+### Reason
+
+The assistant contains several controls—including provider selection, Pi Agent mode, conversation history, chat input, and artifact interactions—so controls must remain understandable and discoverable.
+
+Keyboard accessibility and clear interaction feedback are considered part of the design rather than optional enhancements.
