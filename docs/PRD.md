@@ -850,4 +850,354 @@ The backend automated test suite currently passes with:
 
 The implementation therefore covers the primary product, grounding, agent, persistence, artifact, provider, and UI requirements of the prototype.
 
+# 13. Acceptance Criteria
 
+The product is considered acceptable for the evaluator when the following criteria are met.
+
+## AC-01 — Conversational Assistant
+
+- The user can start a new chat session.
+- Each session maintains independent conversation context.
+- The user can ask product and growth questions.
+- Responses are streamed to the frontend.
+- Supporting transcript sources are displayed.
+
+## AC-02 — Grounding
+
+- Supported questions use relevant transcript evidence.
+- Retrieved transcript content is used as the factual source of truth.
+- Previous assistant responses are not treated as factual evidence.
+- Unsupported questions receive an insufficient-information response rather than an invented answer.
+
+## AC-03 — Persistence
+
+- Conversation session IDs are stored in PostgreSQL.
+- User and assistant messages are persisted.
+- Conversation timestamps are stored.
+- Previous conversations can be retrieved through the application history.
+
+## AC-04 — LLM Providers
+
+- Ollama can be selected and used for the local demonstration.
+- OpenAI can be selected when its API key is configured.
+- Claude can be selected when its API key is configured.
+- The selected provider is visible in the UI.
+- The application does not silently switch to another provider when the selected provider fails.
+
+## AC-05 — Pi Coding Agent
+
+- Pi Agent mode can be enabled from the UI.
+- The Pi Coding Agent path uses the configured local Ollama model.
+- The Pi-based assistant can retrieve transcript context and generate a response.
+- Pi Agent conversations preserve session context.
+
+## AC-06 — Ship 30 for 30
+
+- The application provides a dedicated Ship 30 for 30 capability.
+- Generated content is approximately 1,250 words.
+- The content contains a strong hook and narrative progression.
+- The content uses skimmable formatting.
+- The content contains a useful takeaway.
+- Claims remain grounded in the available transcript knowledge.
+
+## AC-07 — Artifacts
+
+- The user can request a Markdown artifact.
+- The user can request an HTML/CSS artifact.
+- Generated artifacts appear in the in-app Artifact Viewer.
+- HTML artifacts are isolated from the parent application through sandboxing.
+
+## AC-08 — API & Reliability
+
+- Invalid requests are rejected with validation errors.
+- Provider configuration errors are clearly reported.
+- Ollama failures are handled without crashing the application.
+- Model timeout/failure conditions are handled.
+- Empty retrieval results are handled gracefully.
+- Database failures are surfaced appropriately.
+- The health endpoint returns a successful response when the backend is healthy.
+
+## AC-09 — Operational Readiness
+
+- The project can be configured using the documented environment variables.
+- `.env.example` contains safe configuration placeholders.
+- Real secrets are excluded from source control.
+- Application logs provide useful operational visibility.
+- A new developer can follow the README to understand how to run and test the system.
+
+---
+
+# 14. Risks & Trade-offs
+
+## 14.1 Hallucination Risk
+
+### Risk
+
+A language model may generate information that is not supported by the transcript knowledge base.
+
+### Mitigation
+
+The application retrieves transcript context before generation and instructs the assistant to use transcript context as the factual source of truth.
+
+Unsupported questions are explicitly handled rather than answered from general model knowledge.
+
+---
+
+## 14.2 Retrieval Quality
+
+### Risk
+
+Poor retrieval can cause the model to receive incomplete or irrelevant evidence.
+
+### Trade-off
+
+The prototype uses vector similarity search with a limited number of transcript chunks instead of sending the entire transcript corpus to the model.
+
+This reduces context size and latency while keeping retrieval focused.
+
+---
+
+## 14.3 Local Model Quality
+
+### Risk
+
+The local Ollama model may provide lower-quality responses than larger cloud models.
+
+### Trade-off
+
+The project uses `llama3.2:3b` for the required local demonstration because it can run locally without requiring a paid cloud API.
+
+Cloud providers remain available for environments where higher-capability models are preferred.
+
+---
+
+## 14.4 Agent Tool Calling
+
+### Risk
+
+The small local model did not reliably use Pi's built-in tools during early testing.
+
+### Trade-off
+
+Pi is currently executed without its built-in tools for the local demonstration.
+
+The application itself controls transcript retrieval, grounding, persistence, and source tracing.
+
+This provides a more predictable local demonstration while retaining the required Pi Coding Agent architecture.
+
+---
+
+## 14.5 Latency
+
+### Risk
+
+Local model generation and embedding operations can be slower than hosted services.
+
+### Mitigation
+
+The application uses streaming responses so users can see generated content progressively.
+
+The retrieval layer also limits the amount of transcript content sent to the model.
+
+---
+
+## 14.6 Cloud API Cost
+
+### Risk
+
+Using hosted LLM providers can introduce API costs.
+
+### Trade-off
+
+Ollama is used for the primary demonstration, allowing the evaluator to run the project locally without requiring paid cloud inference.
+
+Claude and OpenAI are optional providers.
+
+---
+
+## 14.7 Provider Fallback
+
+### Risk
+
+Automatically switching providers after a failure could make behavior difficult to predict and could hide configuration problems.
+
+### Trade-off
+
+The application uses explicit provider selection and does not automatically fall back to another provider.
+
+If the selected provider is unavailable or incorrectly configured, the application reports the corresponding error.
+
+---
+
+## 14.8 Transcript Freshness
+
+### Risk
+
+The knowledge base can become stale when the source repository changes.
+
+### Mitigation
+
+The ingestion pipeline supports re-ingestion of the transcript repository so the knowledge base can be refreshed.
+
+---
+
+## 14.9 Database Failure
+
+### Risk
+
+PostgreSQL may be unavailable or fail during a request.
+
+### Mitigation
+
+Database operations use managed SQLAlchemy sessions with cleanup, and database errors are allowed to surface through the API error-handling layer.
+
+---
+
+## 14.10 Unsafe Artifact Rendering
+
+### Risk
+
+Generated HTML/CSS is untrusted content and could attempt to interact with the parent application.
+
+### Mitigation
+
+HTML artifacts are rendered inside a sandboxed iframe.
+
+The artifact viewer is isolated from the main application's DOM and does not receive unrestricted access to the parent application.
+
+---
+
+## 14.11 Scope
+
+### Risk
+
+Adding authentication, billing, unrestricted web search, or production infrastructure could significantly increase implementation complexity without improving the core evaluation goal.
+
+### Trade-off
+
+These features are intentionally excluded.
+
+The project prioritizes:
+
+- Grounded answers
+- Retrieval quality
+- Agent architecture
+- Conversation persistence
+- Provider flexibility
+- Artifact generation
+- Operational readiness
+
+---
+
+# 15. Implementation Plan
+
+## Phase 1 — Discovery & Product Definition
+
+- Define primary users and their problems.
+- Establish the grounded-assistant product principle.
+- Define success metrics.
+- Record assumptions.
+- Define scope and non-goals.
+- Identify major product and technical risks.
+
+## Phase 2 — Backend Foundation
+
+- Create the FastAPI application.
+- Establish project structure.
+- Configure PostgreSQL.
+- Define database models.
+- Configure database migrations.
+- Add health and API endpoints.
+
+## Phase 3 — Knowledge Base
+
+- Connect to the Lenny transcript repository.
+- Parse transcript metadata and content.
+- Clean transcript content.
+- Chunk transcripts.
+- Generate embeddings.
+- Store transcript chunks and vectors in PostgreSQL with pgvector.
+- Implement similarity retrieval.
+- Preserve source metadata for traceability.
+
+## Phase 4 — LLM Provider Layer
+
+- Define a common LLM provider interface.
+- Implement Ollama.
+- Implement OpenAI.
+- Implement Anthropic Claude.
+- Add provider factory/configuration.
+- Make provider selection explicit.
+- Document provider configuration and failure behavior.
+
+## Phase 5 — Grounded Assistant
+
+- Implement the grounded agent.
+- Integrate Pi Coding Agent.
+- Pass retrieved transcript context to the agent.
+- Prevent conversation history from becoming factual evidence.
+- Add unsupported-question handling.
+- Implement follow-up context.
+- Persist conversation messages.
+
+## Phase 6 — Streaming & Frontend
+
+- Build the React + Vite interface.
+- Implement chat interaction.
+- Add SSE streaming.
+- Add conversation history.
+- Add source display.
+- Add provider selection.
+- Add Pi Agent mode.
+- Implement user-facing error states.
+
+## Phase 7 — Ship 30 for 30
+
+- Study the required writing principles.
+- Encode them in a dedicated capability.
+- Connect the capability to grounded transcript information.
+- Generate approximately 1,250-word articles.
+- Validate structure, formatting, hooks, and takeaways.
+
+## Phase 8 — Artifact Generation
+
+- Implement artifact generation API.
+- Support Markdown artifacts.
+- Support complete HTML/CSS artifacts.
+- Build the in-app Artifact Viewer.
+- Render HTML inside a sandboxed iframe.
+- Document the artifact security model.
+
+## Phase 9 — Testing & Resilience
+
+- Add automated tests for critical backend behavior.
+- Test retrieval and grounding.
+- Test agent behavior.
+- Test provider behavior.
+- Test persistence.
+- Test API validation.
+- Create the manual UI test plan.
+- Test failure scenarios including missing keys, unavailable Ollama, empty retrieval, and database failures.
+
+## Phase 10 — Deployment & Handoff
+
+- Configure Docker Compose for PostgreSQL and pgvector.
+- Add `.env.example`.
+- Ensure secrets are excluded from Git.
+- Add application logging.
+- Document setup and troubleshooting.
+- Complete architecture and design documentation.
+- Document agent development attempts and corrections.
+
+## Phase 11 — Final Evaluation
+
+- Run the automated test suite.
+- Execute the manual UI test plan.
+- Verify the local Ollama demonstration.
+- Verify Pi Agent mode.
+- Verify artifact rendering and isolation.
+- Verify conversation persistence.
+- Verify provider configuration.
+- Perform a fresh-clone setup check.
+- Record the final demonstration video.
+- Prepare the final submission.
