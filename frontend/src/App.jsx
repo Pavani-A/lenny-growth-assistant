@@ -40,6 +40,7 @@ function getConversationGroup(timestamp) {
 
 function App() {
   const [provider, setProvider] = useState("ollama");
+  const [piAgentMode, setPiAgentMode] = useState(false);
 
   const [artifactOpen, setArtifactOpen] = useState(true);
   const [artifactWidth, setArtifactWidth] = useState(32);
@@ -66,54 +67,54 @@ function App() {
   const [artifactError, setArtifactError] = useState("");
 
   const handleDividerDrag = (clientX, container) => {
-  const rect = container.getBoundingClientRect();
+    const rect = container.getBoundingClientRect();
 
-  const newWidth =
-    ((rect.right - clientX) / rect.width) * 100;
+    const newWidth =
+      ((rect.right - clientX) / rect.width) * 100;
 
-  const clampedWidth = Math.min(
-    Math.max(newWidth, 25),
-    70
-  );
-
-  setArtifactWidth(clampedWidth);
-};
-
-const startDragging = (event) => {
-  event.preventDefault();
-
-  // Capture the container immediately while the React event is valid.
-  const container = event.currentTarget.parentElement;
-
-  const handleMove = (moveEvent) => {
-    handleDividerDrag(
-      moveEvent.clientX,
-      container
+    const clampedWidth = Math.min(
+      Math.max(newWidth, 25),
+      70
     );
+
+    setArtifactWidth(clampedWidth);
   };
 
-  const stopDragging = () => {
-    window.removeEventListener(
+  const startDragging = (event) => {
+    event.preventDefault();
+
+    // Capture the container immediately while the React event is valid.
+    const container = event.currentTarget.parentElement;
+
+    const handleMove = (moveEvent) => {
+      handleDividerDrag(
+        moveEvent.clientX,
+        container
+      );
+    };
+
+    const stopDragging = () => {
+      window.removeEventListener(
+        "pointermove",
+        handleMove
+      );
+
+      window.removeEventListener(
+        "pointerup",
+        stopDragging
+      );
+    };
+
+    window.addEventListener(
       "pointermove",
       handleMove
     );
 
-    window.removeEventListener(
+    window.addEventListener(
       "pointerup",
       stopDragging
     );
   };
-
-  window.addEventListener(
-    "pointermove",
-    handleMove
-  );
-
-  window.addEventListener(
-    "pointerup",
-    stopDragging
-  );
-};
 
   const loadConversations = async () => {
     try {
@@ -197,6 +198,29 @@ const startDragging = (event) => {
       return;
     }
 
+    /*
+     * Claude and OpenAI are available in the provider selector,
+     * but their chat integrations are not connected yet.
+     *
+     * Show the configuration message only after the user
+     * actually tries to send a message.
+     *
+     * Ollama is completely unaffected.
+     */
+    if (!piAgentMode && provider === "claude") {
+      setError(
+        "Claude API key is required. Please add ANTHROPIC_API_KEY to your .env file."
+      );
+      return;
+    }
+
+    if (!piAgentMode && provider === "openai") {
+      setError(
+        "OpenAI API key is required. Please add OPENAI_API_KEY to your .env file."
+      );
+      return;
+    }
+
     setError("");
     setSending(true);
 
@@ -222,20 +246,28 @@ const startDragging = (event) => {
     setMessageInput("");
 
     try {
-      const response = await fetch(
-        `${API_BASE_URL}/api/v1/chat/stream`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
+      const endpoint = piAgentMode
+        ? `${API_BASE_URL}/growth-assistant/stream`
+        : `${API_BASE_URL}/api/v1/chat/stream`;
+
+      const requestBody = piAgentMode
+        ? {
+            message,
+            top_k: 5,
+          }
+        : {
             message,
             session_id: sessionId,
             provider,
-          }),
-        }
-      );
+          };
+
+      const response = await fetch(endpoint, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(requestBody),
+      });
 
       if (!response.ok) {
         let errorMessage =
@@ -661,31 +693,71 @@ const startDragging = (event) => {
               <h2>{conversationTitle}</h2>
             </div>
 
-            <div className="provider-control">
-              <label htmlFor="provider">
-                Model
-              </label>
+            <div className="chat-controls">
+              <div className="pi-agent-control">
+                <span className="pi-agent-label">
+                  Pi Agent
+                </span>
 
-              <select
-                id="provider"
-                value={provider}
-                onChange={(event) =>
-                  setProvider(event.target.value)
-                }
-                disabled={sending}
-              >
-                <option value="ollama">
-                  Ollama
-                </option>
+                <button
+                  type="button"
+                  className={`pi-toggle ${
+                    piAgentMode ? "active" : ""
+                  }`}
+                  onClick={() => {
+                    setPiAgentMode((current) => {
+                      const next = !current;
 
-                <option value="claude">
-                  Claude
-                </option>
+                      if (next) {
+                        setProvider("ollama");
+                      }
 
-                <option value="openai">
-                  OpenAI
-                </option>
-              </select>
+                      return next;
+                    });
+                  }}
+                  disabled={sending}
+                  aria-pressed={piAgentMode}
+                  aria-label={`Pi Agent ${
+                    piAgentMode ? "enabled" : "disabled"
+                  }`}
+                  title={
+                    piAgentMode
+                      ? "Pi Agent enabled — uses Ollama"
+                      : "Enable Pi Agent"
+                  }
+                >
+                  <span className="pi-toggle-track">
+                    <span className="pi-toggle-thumb" />
+                  </span>
+                </button>
+              </div>
+
+              <div className="provider-control">
+                <label htmlFor="provider">
+                  Model
+                </label>
+
+                <select
+                  id="provider"
+                  value={provider}
+                  onChange={(event) =>
+                    setProvider(event.target.value)
+                  }
+                  disabled={sending || piAgentMode}
+                >
+                  <option value="ollama">
+                    Ollama
+                  </option>
+
+                  <option value="claude">
+                    Claude
+                  </option>
+
+                  <option value="openai">
+                    OpenAI
+                  </option>
+                </select>
+              </div>
             </div>
           </header>
 

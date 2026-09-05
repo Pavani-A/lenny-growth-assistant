@@ -85,3 +85,43 @@ Answer the user's question using only the transcript context above.
             answer=answer,
             sources=sources,
         )
+
+    def stream_answer(
+        self,
+        question: str,
+        top_k: int = 5,
+    ):
+        """Retrieve transcript context and stream a grounded answer."""
+
+        if not question.strip():
+            raise ValueError("Question cannot be empty.")
+
+        context, sources = build_grounded_context(
+            question,
+            top_k=top_k,
+        )
+
+        if not context:
+            message = (
+                "I couldn't find enough relevant material in the "
+                "available Lenny Podcast transcripts to answer this."
+            )
+
+            def empty_context_stream():
+                yield message
+
+            return empty_context_stream(), []
+
+        prompt = f"""{SYSTEM_PROMPT}
+
+{context}
+
+USER QUESTION:
+{question}
+
+Answer the user's question using only the transcript context above.
+"""
+
+        stream = self.agent.generate_stream(prompt)
+
+        return stream, sources

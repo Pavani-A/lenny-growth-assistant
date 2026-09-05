@@ -1,3 +1,5 @@
+from collections.abc import Iterator
+
 from app.agent.grounded_agent import GroundedLennyAgent
 
 
@@ -30,3 +32,20 @@ class GrowthAssistantService:
         )
 
         return result.answer, result.sources
+
+    def stream_answer(
+        self,
+        message: str,
+        top_k: int = 5,
+    ) -> tuple[Iterator[str], list[dict]]:
+        """Stream a grounded answer using the Pi-based agent."""
+
+        if not message.strip():
+            raise ValueError("Message cannot be empty.")
+
+        stream, sources = self.agent.stream_answer(
+            question=message,
+            top_k=top_k,
+        )
+
+        return stream, sources
