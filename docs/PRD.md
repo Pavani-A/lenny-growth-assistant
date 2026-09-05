@@ -1,3 +1,4 @@
+
 # Lenny Growth Assistant — Product Requirements Document
 
 ## 1. Product Overview
@@ -10,7 +11,7 @@
 
 The Lenny Growth Assistant is an AI-powered conversational web application that helps product managers, founders, and growth professionals access knowledge from Lenny's Podcast transcripts.
 
-Users can ask product and growth questions and receive answers grounded in the available transcript knowledge. The application also supports follow-up conversations, Ship 30 for 30-style content generation, and Markdown or HTML/CSS artifact generation.
+Users can ask product and growth questions and receive answers grounded in the available transcript knowledge. The application also supports follow-up conversations, persistent conversation history, Ship 30 for 30-style content generation, Pi Coding Agent mode, and Markdown or HTML/CSS artifact generation.
 
 The core product principle is:
 
@@ -46,11 +47,11 @@ The primary user job is:
 
 Users should not need to understand:
 
-- Prompt engineering.
-- Retrieval systems.
-- LLM providers.
-- Infrastructure.
-- Knowledge-base implementation.
+- Prompt engineering
+- Retrieval systems
+- LLM providers
+- Infrastructure
+- Knowledge-base implementation
 
 They should be able to ask a natural-language question and receive a useful, grounded response.
 
@@ -66,11 +67,14 @@ A general-purpose AI assistant also creates a trust problem because it may provi
 
 The Lenny Growth Assistant addresses this by combining:
 
-- Conversational interaction.
-- Transcript retrieval.
-- Grounded generation.
-- Source identification.
-- Session context.
+- Conversational interaction
+- Transcript retrieval
+- Grounded generation
+- Source identification
+- Session context
+- Persistent conversation history
+
+The product intentionally prioritizes grounded evidence over unrestricted general-purpose answers.
 
 ---
 
@@ -83,9 +87,11 @@ The Lenny Growth Assistant addresses this by combining:
 3. Clearly identify supporting sources.
 4. Preserve context across follow-up questions.
 5. Avoid unsupported claims.
-6. Provide a useful experience even when the knowledge base cannot answer a question.
+6. Provide a useful experience when the knowledge base cannot answer a question.
 7. Generate reusable written content.
 8. Generate and render useful artifacts inside the product.
+9. Demonstrate an agent-based Growth Assistant using Pi Coding Agent.
+10. Provide explicit LLM provider selection without changing application code.
 
 ---
 
@@ -99,9 +105,9 @@ The Lenny Growth Assistant addresses this by combining:
 
 ### Definition
 
-Percentage of supported evaluation questions where the assistant produces an answer that is supported by relevant transcript evidence.
+Percentage of supported evaluation questions where the assistant produces an answer supported by relevant transcript evidence.
 
-This measures whether the retrieval and grounding system is producing useful answers rather than merely generating plausible responses.
+This metric is intended as an evaluation target for the system rather than a measured production statistic.
 
 ---
 
@@ -125,50 +131,72 @@ The evaluator should be able to complete the major product flows successfully:
 
 1. Start a new chat.
 2. Ask a grounded question.
-3. Receive an answer.
-4. View the supporting source.
+3. Receive a streamed answer.
+4. View supporting source information.
 5. Ask a follow-up question.
 6. Receive a context-aware response.
-7. Ask an unsupported question.
-8. Receive an appropriate "not enough information" response.
-9. Generate a Ship 30 for 30-style article.
-10. Generate an artifact.
-11. View the artifact inside the application.
+7. View conversation history.
+8. Ask an unsupported question.
+9. Receive an appropriate insufficient-information response.
+10. Generate a Ship 30 for 30-style article.
+11. Generate an artifact.
+12. View the artifact inside the application.
+13. Enable Pi Agent mode and use the Growth Assistant flow.
+14. Select different LLM providers and observe the corresponding provider behavior.
 
 ---
 
 # 5. Assumptions
 
-The assignment leaves some implementation details open. The following assumptions will guide the project.
+The following assumptions guided the implemented prototype.
 
 ## Content
 
 - Lenny's Podcast/newsletter transcript content is available for the project.
 - A curated transcript repository is sufficient for the initial implementation.
-- The knowledge base does not need to contain every possible Lenny transcript to demonstrate the core experience.
+- The initial knowledge base does not need to contain every possible Lenny transcript to demonstrate the core experience.
+- The current local knowledge base contains 50 podcast episodes.
+- The current dataset contains 1,003 transcript chunks and 1,003 embeddings.
 
 ## Infrastructure
 
-- PostgreSQL will be used for application persistence.
-- Local PostgreSQL will run through Docker Compose.
-- Supabase and Railway can be used as alternative PostgreSQL deployments if required.
+- PostgreSQL is used for application persistence.
+- PostgreSQL runs locally through Docker Compose.
+- pgvector is used for vector similarity search.
+- The frontend and backend run as local development processes.
+- Ollama runs locally for the demonstration.
 
 ## AI
 
-- The application will support Anthropic Claude and OpenAI as cloud providers.
-- Ollama will provide the mandatory local model for the demonstration.
+- The application supports Anthropic Claude, OpenAI, and Ollama.
+- Ollama provides the local model used for the demonstration.
+- The chat model used by the local demo is `llama3.2:3b`.
+- The embedding model used by the local demo is `embeddinggemma`.
+- Embeddings are 768-dimensional.
 - No model fine-tuning is required.
-- The application will use a configuration layer so the model/provider can be changed without modifying application code.
+- Provider selection is handled through a provider abstraction and factory.
+- The selected provider is used directly.
+- There is no automatic fallback between providers.
+
+## Agent
+
+- Pi Coding Agent is used for the Growth Assistant agent path.
+- Pi communicates with the application through its RPC interface.
+- The current local Pi configuration uses Ollama and `llama3.2:3b`.
+- Pi is currently executed without its built-in tools for the local small-model configuration.
+- Transcript retrieval and factual grounding remain controlled by the application.
 
 ## Artifacts
 
 - Generated HTML/CSS is considered untrusted content.
-- The Artifact Viewer will therefore use an appropriate isolation and/or sanitization strategy.
+- HTML artifacts are rendered in a sandboxed iframe.
+- Markdown and HTML/CSS artifacts are supported.
 
 ## Product
 
 - The project is an evaluator-ready prototype rather than a production-scale SaaS product.
-- Authentication and billing are not required for the initial version.
+- Authentication and billing are not required for the current version.
+- The focus is on grounded assistance, agent architecture, retrieval, provider flexibility, artifacts, and deployment readiness.
 
 ---
 
@@ -178,95 +206,109 @@ The assignment leaves some implementation details open. The following assumption
 
 ### Conversational Assistant
 
-- New chat sessions.
-- Independent session context.
-- Product and growth questions.
-- Follow-up questions.
-- Grounded answers.
-- Unsupported-question handling.
+- New chat sessions
+- Independent session context
+- Product and growth questions
+- Follow-up questions
+- Grounded answers
+- Streaming responses
+- Unsupported-question handling
+- Persistent conversation history
 
 ### Knowledge Base
 
-- Transcript ingestion.
-- Transcript cleaning and normalization.
-- Chunking.
-- Indexing.
-- Retrieval.
-- Source metadata.
-- Knowledge-base refresh process.
-- Source tracing.
+- Transcript ingestion
+- Transcript cleaning and normalization
+- Chunking
+- Embedding generation
+- Vector indexing
+- Retrieval
+- Source metadata
+- Knowledge-base refresh process
+- Source tracing
 
-### AI
+### AI / LLM
 
-- Anthropic Claude.
-- OpenAI.
-- Ollama.
-- Anthropic Claude Agent SDK.
-- Configuration-based provider selection.
+- Anthropic Claude
+- OpenAI
+- Ollama
+- Explicit provider selection
+- Provider abstraction
+- Provider/model configuration
+- Pi Coding Agent
+- Local Ollama demonstration
 
 ### Content Generation
 
-- Ship 30 for 30 skill/tool.
-- Approximately 1,250-word articles.
-- Grounded claims.
-- Structured formatting.
+- Ship 30 for 30 capability
+- Approximately 1,250-word articles
+- Grounded claims
+- Structured formatting
+- Strong hooks
+- Narrative structure
+- Skimmable headings and sections
+- Useful takeaways
 
 ### Artifacts
 
-- Markdown generation.
-- HTML/CSS generation.
-- In-app Artifact Viewer.
-- Artifact security/isolation.
+- Markdown generation
+- HTML/CSS generation
+- In-app Artifact Viewer
+- HTML isolation through sandboxing
 
 ### Backend
 
-- FastAPI.
-- PostgreSQL.
-- REST APIs.
-- Request validation.
-- Structured errors.
-- Health endpoints.
+- FastAPI
+- PostgreSQL
+- pgvector
+- REST APIs
+- Request validation
+- Structured error responses
+- Health endpoint
+- Server-Sent Events streaming
 
 ### Operations
 
-- Docker Compose.
-- `.env.example`.
-- Structured logging.
-- Error handling.
-- Automated tests.
-- Manual UI test plan.
-- Documentation.
+- Docker Compose for PostgreSQL
+- Environment-based configuration
+- `.env` / `.env.example` configuration pattern
+- Application logging
+- Error handling
+- Automated tests
+- Manual UI testing
+- Documentation
 
 ---
 
 ## 6.2 Out of Scope
 
-The following are intentionally excluded from the initial version:
+The following are intentionally excluded from the current version:
 
-- General-purpose AI assistance.
-- Unrestricted web search.
-- General external research.
-- Foundation-model training.
-- Model fine-tuning.
-- Production billing.
-- Production-scale infrastructure.
-- Arbitrary code execution.
-- Native mobile applications.
-- Full enterprise authentication and authorization.
+- General-purpose AI assistance
+- Unrestricted web search
+- General external research
+- Foundation-model training
+- Model fine-tuning
+- Production billing
+- Production-scale infrastructure
+- Arbitrary code execution
+- Native mobile applications
+- Full enterprise authentication and authorization
 
 ### Why These Are Excluded
 
-The assignment prioritizes a reliable, grounded assistant and evaluator-ready deployment.
+The assignment prioritizes a reliable, grounded assistant and evaluator-ready implementation.
 
 Keeping the scope focused allows the project to demonstrate:
 
-- Product judgment.
-- Grounding quality.
-- Agent architecture.
-- Retrieval.
-- Provider configuration.
-- Artifact generation.
-- Deployment readiness.
+- Product judgment
+- Grounding quality
+- Agent architecture
+- Retrieval
+- Provider configuration
+- Conversation persistence
+- Artifact generation
+- Deployment readiness
 
 without spreading effort across unrelated production features.
 
@@ -282,11 +324,13 @@ The user opens the application and starts a new conversation.
 
 ### System Behavior
 
-The system creates a unique session.
+The frontend creates a unique session ID for the conversation.
 
 ### Expected Result
 
 The user receives an empty chat interface ready for a question.
+
+The new session is independent from previously created conversations.
 
 ---
 
@@ -304,20 +348,22 @@ Example:
 
 1. Receive the question.
 2. Identify relevant transcript content.
-3. Retrieve supporting transcript chunks.
-4. Evaluate whether enough evidence exists.
-5. Generate an answer grounded in the retrieved content.
-6. Identify the supporting source.
-7. Persist the conversation.
+3. Generate a query embedding.
+4. Retrieve supporting transcript chunks using vector similarity.
+5. Construct grounded context.
+6. Generate an answer using the selected provider or agent path.
+7. Stream the response to the frontend.
+8. Return the supporting source information.
+9. Persist the conversation.
 
 ### Expected Result
 
 The user sees:
 
-- Their question.
-- A grounded answer.
-- A grounding indicator.
-- Supporting source information.
+- Their question
+- A grounded answer
+- Supporting source information
+- A progressively streamed response
 
 ---
 
@@ -332,14 +378,16 @@ The user asks a follow-up question based on the previous conversation.
 The system:
 
 1. Retrieves the existing session.
-2. Uses conversation context.
-3. Retrieves relevant transcript evidence.
-4. Generates a contextual answer.
-5. Persists the new message.
+2. Loads previous conversation messages.
+3. Uses previous messages to understand conversational references.
+4. Builds a retrieval query using recent user messages and the current question.
+5. Retrieves new transcript evidence.
+6. Generates a contextual response.
+7. Persists the new message.
 
 ### Expected Result
 
-The assistant understands the relationship between the current question and previous conversation context.
+The assistant understands the relationship between the current question and previous conversation context while continuing to use transcript evidence as the factual source of truth.
 
 ---
 
@@ -351,46 +399,88 @@ The user asks something that cannot be sufficiently answered from the available 
 
 ### System Behavior
 
-The system determines that relevant supporting evidence is insufficient.
+The system attempts transcript retrieval and evaluates the available context.
+
+If useful transcript context is unavailable, the assistant does not invent an answer.
 
 ### Expected Result
 
-Instead of generating an unsupported answer, the assistant explains that the available transcript material does not provide enough information.
-
-The UI can optionally provide suggested supported topics.
+The assistant explains that the available transcript material does not provide enough information.
 
 ---
 
-## 7.5 Generate Ship 30 for 30 Article
+## 7.5 Select an LLM Provider
 
 ### User Action
 
-The user requests a Ship 30 for 30-style article based on the current conversation or grounded knowledge.
+The user selects Ollama, Claude, or OpenAI from the provider selector.
 
 ### System Behavior
 
-The dedicated Ship 30 for 30 skill:
+The application uses the explicitly selected provider.
 
-1. Uses grounded information.
-2. Applies the defined writing principles.
-3. Produces approximately 1,250 words.
-4. Uses structured formatting.
-5. Keeps claims grounded in the knowledge base.
+There is no automatic fallback.
+
+If Claude or OpenAI is selected without the required API configuration, the application returns a clear configuration error.
 
 ### Expected Result
 
-The user receives a reusable article with:
-
-- Strong hook.
-- Clear narrative.
-- Headings.
-- Bullets where appropriate.
-- Selective bold emphasis.
-- Specific takeaway.
+The user receives a response from the selected provider or a clear provider-specific error.
 
 ---
 
-## 7.6 Generate Artifact
+## 7.6 Use Pi Agent Mode
+
+### User Action
+
+The user enables Pi Agent mode.
+
+### System Behavior
+
+1. The frontend switches the Growth Assistant flow to the Pi-based endpoint.
+2. Pi Coding Agent is invoked.
+3. Ollama is used as the local model provider.
+4. Transcript retrieval provides the grounded context.
+5. The response is streamed back to the frontend.
+6. The normal provider selector is disabled while Pi mode is active.
+
+### Expected Result
+
+The user receives a grounded response through the Pi Coding Agent path.
+
+---
+
+## 7.7 Generate Ship 30 for 30 Article
+
+### User Action
+
+The user requests a Ship 30 for 30-style article based on grounded knowledge.
+
+### System Behavior
+
+The dedicated capability:
+
+1. Uses relevant grounded information.
+2. Applies the defined writing principles.
+3. Produces approximately 1,250 words.
+4. Uses structured formatting.
+5. Keeps claims grounded in the available knowledge.
+
+### Expected Result
+
+The user receives reusable content containing:
+
+- Strong hook
+- Clear narrative
+- Headings
+- Skimmable sections
+- Bullets where appropriate
+- Selective bold emphasis
+- Specific takeaway
+
+---
+
+## 7.8 Generate Artifact
 
 ### User Action
 
@@ -398,14 +488,14 @@ The user asks the assistant to create an artifact.
 
 ### Supported Outputs
 
-- Markdown.
-- HTML/CSS.
+- Markdown
+- HTML/CSS
 
 ### Expected Result
 
 The generated artifact appears in the Artifact Viewer beside the conversation.
 
-The user should not need to copy the generated code into another application just to see the result.
+The user does not need to copy generated HTML into another application just to inspect the result.
 
 ---
 
@@ -423,10 +513,10 @@ Each session shall have an independent context.
 
 The system shall persist:
 
-- Session ID.
-- Messages.
-- Timestamps.
-- User metadata.
+- Session ID
+- Messages
+- Timestamps
+- User metadata
 
 in PostgreSQL.
 
@@ -436,17 +526,31 @@ in PostgreSQL.
 
 The system shall retrieve relevant transcript content before generating grounded answers.
 
+The retrieval system shall use vector similarity search against transcript embeddings.
+
 ---
 
 ## FR-04 — Grounded Responses
 
 The system shall use retrieved transcript evidence when answering supported product and growth questions.
 
+The transcript context is the factual source of truth.
+
 ---
 
 ## FR-05 — Source Identification
 
-Grounded answers shall clearly identify the relevant transcript/source used.
+Grounded responses shall provide relevant transcript source information.
+
+Source information can include:
+
+- Episode title
+- Guest
+- Published date
+- Source URL
+- YouTube URL
+- Chunk index
+- Transcript content
 
 ---
 
@@ -462,17 +566,23 @@ It shall not present unsupported information as though it came from Lenny's tran
 
 The system shall preserve conversation context within a session.
 
+Previous conversation messages may be used to understand references and follow-up questions.
+
+Previous assistant responses shall not be treated as factual evidence.
+
 ---
 
 ## FR-08 — LLM Configuration
 
 The system shall support:
 
-- Anthropic Claude.
-- OpenAI.
-- Ollama.
+- Anthropic Claude
+- OpenAI
+- Ollama
 
 Provider/model selection shall be configurable without changing application code.
+
+The selected provider shall be used directly without automatic fallback.
 
 ---
 
@@ -480,43 +590,67 @@ Provider/model selection shall be configurable without changing application code
 
 The submitted demonstration shall run using Ollama and a suitable local model.
 
+The current local configuration uses:
+
+```text
+Chat model: llama3.2:3b
+Embedding model: embeddinggemma
+Embedding dimension: 768
+````
+
 ---
 
-## FR-10 — Ship 30 for 30
+## FR-10 — Pi Coding Agent
 
-The system shall provide a dedicated Ship 30 for 30 skill/tool.
+The system shall provide a Pi Coding Agent execution path for the Growth Assistant.
+
+The local demonstration shall use Pi with Ollama.
+
+---
+
+## FR-11 — Ship 30 for 30
+
+The system shall provide a dedicated Ship 30 for 30 capability.
 
 The generated content should be approximately 1,250 words and follow the required formatting and writing principles.
 
 ---
 
-## FR-11 — Artifact Generation
+## FR-12 — Artifact Generation
 
 The system shall generate Markdown or complete HTML/CSS artifacts when requested.
 
 ---
 
-## FR-12 — Artifact Viewer
+## FR-13 — Artifact Viewer
 
 The frontend shall render generated artifacts beside the chat.
 
 ---
 
-## FR-13 — Artifact Security
+## FR-14 — Artifact Security
 
-Generated HTML shall be treated as untrusted content and rendered using an appropriate isolation and/or sanitization strategy.
+Generated HTML shall be treated as untrusted content and rendered using browser isolation through a sandboxed iframe.
 
 ---
 
-## FR-14 — API Validation
+## FR-15 — API Validation
 
 Backend APIs shall validate incoming requests and return structured errors for invalid requests.
 
 ---
 
-## FR-15 — Health Checks
+## FR-16 — Health Checks
 
-The backend shall provide health endpoints for application/service monitoring.
+The backend shall provide a health endpoint for basic application/service monitoring.
+
+---
+
+## FR-17 — Streaming
+
+The system shall support streaming assistant responses using Server-Sent Events.
+
+Streaming responses shall provide token/content events followed by source and completion events where applicable.
 
 ---
 
@@ -526,11 +660,15 @@ The backend shall provide health endpoints for application/service monitoring.
 
 The application should handle common failures gracefully, including:
 
-- Missing API keys.
-- Unavailable Ollama.
-- Model timeouts.
-- Empty retrieval results.
-- Database connection failures.
+* Missing API keys
+* Unavailable Ollama
+* Model failures/timeouts
+* Empty retrieval results
+* Database connection failures
+* Invalid requests
+* Artifact generation failures
+
+Provider failures should not silently trigger a different provider.
 
 ---
 
@@ -538,7 +676,9 @@ The application should handle common failures gracefully, including:
 
 The system should provide reasonable response times for a local demonstration.
 
-Retrieval should avoid unnecessarily sending the entire transcript corpus to the model.
+Retrieval should avoid sending the entire transcript corpus to the model.
+
+The system retrieves a limited number of relevant transcript chunks for each query.
 
 ---
 
@@ -546,25 +686,30 @@ Retrieval should avoid unnecessarily sending the entire transcript corpus to the
 
 The application must:
 
-- Keep secrets outside source control.
-- Use environment variables for credentials.
-- Provide `.env.example`.
-- Treat generated HTML as untrusted.
-- Prevent artifacts from gaining unsafe access to the host application.
+* Keep secrets outside source control.
+* Use environment variables for credentials.
+* Provide an `.env.example` configuration pattern.
+* Treat generated HTML as untrusted.
+* Render generated HTML in a sandboxed iframe.
+* Prevent generated artifacts from gaining unrestricted access to the host application.
+* Avoid treating previous assistant responses as factual grounding evidence.
 
 ---
 
 ## Maintainability
 
-The implementation should have clear separation between:
+The implementation should maintain clear separation between:
 
-- Frontend.
-- API layer.
-- Agent layer.
-- Retrieval layer.
-- LLM providers.
-- Persistence.
-- Artifact generation.
+* Frontend
+* API layer
+* Agent layer
+* Retrieval layer
+* LLM providers
+* Persistence
+* Artifact generation
+* Ingestion
+
+This separation allows individual components to evolve without requiring changes throughout the application.
 
 ---
 
@@ -578,11 +723,11 @@ The initial state should allow the user to start a conversation easily.
 
 ## Grounded Answer
 
-The interface should make it clear that the answer is grounded and show the supporting source.
+The interface should display the generated answer and make supporting transcript information easy to inspect.
 
 ## Not Enough Information
 
-The interface should clearly communicate that available transcript material does not support the question.
+The interface should clearly communicate when available transcript material does not support the question.
 
 ## Artifact Viewer
 
@@ -590,7 +735,9 @@ Generated artifacts should be rendered beside the chat rather than shown only as
 
 ## Provider Visibility
 
-The selected LLM provider/model should be visible in the UI or configuration.
+The selected LLM provider should be visible in the interface.
+
+When Pi Agent mode is active, the provider selector is disabled and Ollama is used for the local Pi flow.
 
 ## Responsive Behavior
 
@@ -600,11 +747,11 @@ The interface should remain usable across common desktop viewport sizes.
 
 The UI should provide:
 
-- Readable typography.
-- Clear visual hierarchy.
-- Keyboard-accessible controls.
-- Meaningful labels.
-- Sufficient interaction feedback.
+* Readable typography
+* Clear visual hierarchy
+* Keyboard-accessible controls where applicable
+* Meaningful labels
+* Sufficient interaction feedback
 
 ---
 
@@ -614,18 +761,25 @@ The main product states are:
 
 ```text
 Main Chat
-    ↓
+    |
+    v
 User Question
-    ↓
-Loading
-    ↓
+    |
+    v
+Loading / Streaming
+    |
+    v
 Grounded Answer
-    │
-    ├── Follow-up Question
-    │
-    ├── Ship 30 for 30
-    │
-    └── Artifact Generation
+    |
+    +---- Sources
+    |
+    +---- Follow-up Question
+    |
+    +---- Ship 30 for 30
+    |
+    +---- Artifact Generation
+    |
+    +---- Conversation History
 
 OR
 
@@ -633,4 +787,67 @@ Not Enough Information
 
 OR
 
-Error
+Provider / Application Error
+```
+
+---
+
+# 12. Current Implementation Snapshot
+
+The current implementation provides:
+
+```text
+Knowledge Base
+----------------
+50 podcast episodes
+1,003 transcript chunks
+1,003 embeddings
+768-dimensional vectors
+
+Local AI
+----------------
+Ollama
+llama3.2:3b
+embeddinggemma
+
+Agent
+----------------
+Pi Coding Agent
+RPC execution
+Local Ollama model
+
+Persistence
+----------------
+PostgreSQL
+pgvector
+Conversation history
+Session IDs
+
+Frontend
+----------------
+React
+Vite
+Streaming chat
+Provider selector
+Pi Agent toggle
+Source display
+Artifact Viewer
+
+Backend
+----------------
+FastAPI
+REST APIs
+SSE streaming
+Pydantic validation
+Application logging
+```
+
+The backend automated test suite currently passes with:
+
+```text
+23 passed
+```
+
+The implementation therefore covers the primary product, grounding, agent, persistence, artifact, provider, and UI requirements of the prototype.
+
+
