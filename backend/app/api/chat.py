@@ -1,4 +1,5 @@
 import json
+import logging
 
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
@@ -9,12 +10,19 @@ from app.services.chat_service import ChatService
 
 router = APIRouter(prefix="/api/v1", tags=["chat"])
 
+logger = logging.getLogger(__name__)
+
 chat_service = ChatService()
 
 
 @router.post("/chat", response_model=ChatResponse)
 def chat(request: ChatRequest) -> ChatResponse:
     """Process a chat request using the selected LLM provider."""
+
+    logger.info(
+        "Chat request received | provider=%s",
+        request.provider,
+    )
 
     try:
         return chat_service.chat(
@@ -35,6 +43,11 @@ def chat(request: ChatRequest) -> ChatResponse:
 @router.post("/chat/stream")
 def chat_stream(request: ChatRequest) -> StreamingResponse:
     """Stream an assistant response using Server-Sent Events."""
+
+    logger.info(
+        "Streaming chat request received | provider=%s",
+        request.provider,
+    )
 
     try:
         stream, sources = chat_service.chat_stream(

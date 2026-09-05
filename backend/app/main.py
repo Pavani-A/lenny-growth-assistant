@@ -1,9 +1,19 @@
+import logging
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+
 from app.api.artifact import router as artifact_router
 from app.api.chat import router as chat_router
 from app.api.conversations import router as conversations_router
 from app.api.growth_assistant import router as growth_assistant_router
+
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
+)
+
 
 app = FastAPI(
     title="Lenny Growth Assistant API",
@@ -20,6 +30,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
 
 @app.get("/health")
 def health_check():
